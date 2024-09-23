@@ -109,7 +109,7 @@ merged_data_with_transactions <- merged_data_with_transactions %>%
 
 # Filter data where Transaction_Count is between 1 and 100
 filtered_data <- merged_data_with_transactions %>%
-  filter(Transaction_Count > 1 & Transaction_Count < 100)
+  filter(Transaction_Count > 0 & Transaction_Count < 100)
 
 # Create the scatter plot with a line of best fit
 ggplot(filtered_data, aes(x = Transaction_Count, y = Percentage)) +
@@ -130,4 +130,20 @@ model <- lm(Percentage ~ Transaction_Count, data = merged_data_with_transactions
 
 # View the summary of the linear regression model
 summary(model)
+
+##################
+#how many unique LTI ID's did we log in database vs in demo/grades data?
+#whats the distribution of gender?
+#what's the distribution of race?
+#what's the distribution of age?
+#How many classes are there? (based on class ID)
+#How many students are there in segments of usage (low, medium, high) --> usage segments
+#What is the distribution of grade by usage segments
+#What is the distribution of grade by age
+#What is the distribution of grade by Race
+#What is the distribution of grade by Gender
+#How did students who used the tutor do in the overall class compared to non-users?
+#Run T Test, Linear Regression
+#https://docs.google.com/presentation/d/1vzKI-MyiHMByvPYM2kXsSjqkxuNElqytpYIkQ0B2aUI/edit#slide=id.p
+##################
 
