@@ -1,6 +1,7 @@
 # Load necessary libraries
 library(readr)
 library(dplyr)
+library(ggplot2)
 
 # Load the datasets
 demographics <- read_csv("Documents/GitHub/apprentice-data-analysis/demographics.csv")
@@ -49,7 +50,7 @@ grades <- grades %>%
 transactions <- transactions %>%
   filter(!is.na(LTI_ID) & LTI_ID != "null" & LTI_ID != "")
 
-View(transactions)
+#View(transactions)
 
 # Calculate the number of occurrences for each unique LTI_ID in the transactions dataset
 transaction_counts <- transactions %>%
@@ -63,14 +64,14 @@ filtered_data <- filtered_data %>% distinct()
 merged_data <- demographics %>%
   inner_join(filtered_data, by = "LTI_ID", relationship = "many-to-many")
 
-View(merged_data)
+#View(merged_data)
 
 # Perform the join between merged_data and transaction_counts
 merged_data_with_transactions <- merged_data %>%
   left_join(transaction_counts, by = "LTI_ID")
 
 # View the merged dataset with transaction counts
-View(merged_data_with_transactions)
+# View(merged_data_with_transactions)
 
 # Remove duplicate rows in grades
 merged_data_with_transactions <- merged_data_with_transactions %>% distinct()
@@ -79,5 +80,17 @@ merged_data_with_transactions <- merged_data_with_transactions %>% distinct()
 write_csv(merged_data, "Documents/GitHub/apprentice-data-analysis/merged_data_with_transactions.csv")
 
 
+# filter outliers
+#merged_data_with_transactions <- merged_data_with_transactions[merged_data_with_transactions$Transaction_Count<1500,]
+
+#Graphs
+hist(merged_data_with_transactions$Transaction_Count)
+
+
+subset(merged_data_with_transactions, Transaction_Count>1)
+
+m1 <- lm(Percentage ~ Transaction_Count + Gender + Race, data=merged_data_with_transactions)
+m2 <- lm(Percentage ~ Transaction_Count + Gender, data=merged_data_with_transactions)
+anova(m1, m2)
 
 
