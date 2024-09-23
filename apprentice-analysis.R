@@ -3,6 +3,11 @@ library(readr)
 library(dplyr)
 library(ggplot2)
 
+
+####################################
+#Section 1: Date Cleanup
+####################################
+
 # Load the datasets
 demographics <- read_csv("Documents/GitHub/apprentice-data-analysis/demographics.csv")
 grades <- read_csv("Documents/GitHub/apprentice-data-analysis/grades.csv")
@@ -83,14 +88,46 @@ write_csv(merged_data, "Documents/GitHub/apprentice-data-analysis/merged_data_wi
 # filter outliers
 #merged_data_with_transactions <- merged_data_with_transactions[merged_data_with_transactions$Transaction_Count<1500,]
 
-#Graphs
+
+
+####################################
+#Section 2: Graphs
+####################################
+
+##################
+#Histogram of transaction count
+##################
 hist(merged_data_with_transactions$Transaction_Count)
 
+##################
+#Overall Grade vs. Tutor Transaction
+##################
+# Replace NA in Transaction_Count with 0 for plotting purposes
+merged_data_with_transactions <- merged_data_with_transactions %>%
+  mutate(Transaction_Count = replace_na(Transaction_Count, 0),
+         Percentage = as.numeric(gsub("%", "", Percentage)))  # Convert Percentage to numeric
 
-subset(merged_data_with_transactions, Transaction_Count>1)
+# Filter data where Transaction_Count is between 1 and 100
+filtered_data <- merged_data_with_transactions %>%
+  filter(Transaction_Count > 1 & Transaction_Count < 100)
 
-m1 <- lm(Percentage ~ Transaction_Count + Gender + Race, data=merged_data_with_transactions)
-m2 <- lm(Percentage ~ Transaction_Count + Gender, data=merged_data_with_transactions)
-anova(m1, m2)
+# Create the scatter plot with a line of best fit
+ggplot(filtered_data, aes(x = Transaction_Count, y = Percentage)) +
+  geom_point(color = "blue") +
+  geom_smooth(method = "lm", color = "red", se = FALSE) +  # Add line of best fit (linear model)
+  labs(
+    title = "Overall Grade vs Tutor Transaction Count (Filtered with Best Fit Line)",
+    x = "Tutor Transaction Count",
+    y = "Overall Grade (%)"
+  ) +
+  theme_minimal()
 
+##################
+#Correlation between tutor and grades
+##################
+# Perform linear regression
+model <- lm(Percentage ~ Transaction_Count, data = merged_data_with_transactions)
+
+# View the summary of the linear regression model
+summary(model)
 
