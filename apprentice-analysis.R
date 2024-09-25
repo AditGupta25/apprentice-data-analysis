@@ -2,6 +2,8 @@
 library(readr)
 library(dplyr)
 library(ggplot2)
+library(lubridate)
+
 
 
 ####################################
@@ -55,7 +57,7 @@ grades <- grades %>%
 transactions <- transactions %>%
   filter(!is.na(LTI_ID) & LTI_ID != "null" & LTI_ID != "")
 
-#View(transactions)
+View(transactions)
 
 # Calculate the number of occurrences for each unique LTI_ID in the transactions dataset
 transaction_counts <- transactions %>%
@@ -238,10 +240,12 @@ ggplot(unit_summary, aes(x = unit, y = transactions_count)) +
 
 
 
-
-##################
+##########################################################################################
+##########################################################################################
 #Unit Grades vs. Unit Tutor Usage Relationship
 ##################
+##########################################################################################
+##########################################################################################
 #Goal: Bucket the transactions / user based on unit and see how it effected their grade in that unit. 
 #Compare this to non tutor user grades in those unites
 # Process: Clean up transactions data, and bucket based on unit 
@@ -288,19 +292,92 @@ View(unit_usage_summary)
 final_dataset <- grades_with_tutors %>%
   left_join(unit_usage_summary, by = "LTI_ID")
 
-
-View(final_dataset)
-write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/unitgrades_transactions_dataset.csv")
-
-
 # First, clean the 'Percentage' column to ensure it's numeric
 final_dataset <- final_dataset %>%
   mutate(Percentage = as.numeric(gsub("%", "", Percentage)))
 
 View(final_dataset)
 
+write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/unitgrades_transactions_dataset.csv")
 
-##### UNIT 1 TUTOR USERS
+
+######################################### 
+#UNIT 1,2,3,4 TUTOR USERS
+#########################################
+# Define a function to calculate mean grades for tutor users and non-tutor users across all units
+calculate_overall_mean_grade <- function(final_dataset) {
+  # Create a helper function to process each unit
+  process_unit <- function(unit_number, transactions_col) {
+    filtered_data <- final_dataset %>%
+      select(-LTI_IDs) %>%
+      filter(Display_Column_Name == paste0("Unit ", unit_number, " Test")) %>%
+      distinct(LTI_ID, .keep_all = TRUE)
+    
+    # Filter students who used tutors
+    students_used_tutors <- filtered_data %>%
+      filter(!is.na(.data[[transactions_col]]) & .data[[transactions_col]] > 0)
+    
+    # Calculate the mean grade for these students
+    mean_grade_used_tutors <- students_used_tutors %>%
+      summarise(mean_grade = mean(Percentage, na.rm = TRUE))
+    
+    # Filter students who did not use tutors
+    students_not_used_tutors <- filtered_data %>%
+      filter(is.na(.data[[transactions_col]]) | .data[[transactions_col]] == 0)
+    
+    # Calculate the mean grade for these students
+    mean_grade_not_used_tutors <- students_not_used_tutors %>%
+      summarise(mean_grade = mean(Percentage, na.rm = TRUE))
+    
+    return(list(used_tutors = mean_grade_used_tutors$mean_grade, not_used_tutors = mean_grade_not_used_tutors$mean_grade))
+  }
+  
+  # Process all units (1 through 4)
+  unit_1 <- process_unit(1, "Unit_1_Transactions")
+  unit_2 <- process_unit(2, "Unit_2_Transactions")
+  unit_3 <- process_unit(3, "Unit_3_Transactions")
+  unit_4 <- process_unit(4, "Unit_4_Transactions")
+  
+  # Calculate the overall mean grade for tutor users across all units
+  overall_mean_grade_used_tutors <- mean(c(unit_1$used_tutors, unit_2$used_tutors, unit_3$used_tutors, unit_4$used_tutors), na.rm = TRUE)
+  
+  # Calculate the overall mean grade for non-tutor users across all units
+  overall_mean_grade_not_used_tutors <- mean(c(unit_1$not_used_tutors, unit_2$not_used_tutors, unit_3$not_used_tutors, unit_4$not_used_tutors), na.rm = TRUE)
+  
+  # Create a data frame with the values
+  data <- data.frame(
+    Group = c("Used Tutors", "Not Used Tutors"),
+    Mean_Grade = c(overall_mean_grade_used_tutors, overall_mean_grade_not_used_tutors)
+  )
+  
+  # Create the bar plot
+  barplot(
+    height = data$Mean_Grade, 
+    names.arg = data$Group,
+    col = c("lightblue", "lightgreen"),
+    main = "Overall Mean Grades: Tutor Users vs Non-Tutor Users",
+    ylab = "Mean Grade (%)",
+    ylim = c(0, 100)  # Adjust as necessary to fit the mean grade range
+  )
+  
+  # Add labels on top of the bars showing the mean grades
+  text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+  
+  return(data)
+}
+
+# Call the function with your dataset
+overall_mean_grades <- calculate_overall_mean_grade(final_dataset)
+
+# View the results
+print(overall_mean_grades)
+
+
+
+
+######################################### 
+#UNIT 1 TUTOR USERS
+#########################################
 unit1_filtered_data <- final_dataset %>%
   select(-Unit_2_Transactions, -Unit_3_Transactions, -Unit_4_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 1 Test") %>%  
@@ -308,6 +385,9 @@ unit1_filtered_data <- final_dataset %>%
 
 # View the filtered data
 View(unit1_filtered_data)
+
+write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/unit1_filtered_data.csv")
+
 
 # Filter students who used tutors (Unit_1_Transactions is not NA)
 unit1_students_used_tutors <- unit1_filtered_data %>%
@@ -356,8 +436,15 @@ barplot(
 
 # Add labels on top of the bars showing the mean grades
 text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
+######################################### 
+#UNIT 1 TUTOR USERS
+#########################################
 
-##### UNIT 2 TUTOR USERS
+
+
+######################################### 
+#UNIT 2 TUTOR USERS
+#########################################
 unit2_filtered_data <- final_dataset %>%
   select(-Unit_1_Transactions, -Unit_3_Transactions, -Unit_4_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 2 Test") %>%  
@@ -410,8 +497,15 @@ barplot(
 
 # Add labels on top of the bars showing the mean grades
 text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+######################################### 
+#UNIT 2 TUTOR USERS
+#########################################
 
-##### UNIT 3 TUTOR USERS
+
+
+######################################### 
+#UNIT 3 TUTOR USERS
+#########################################
 unit3_filtered_data <- final_dataset %>%
   select(-Unit_1_Transactions, -Unit_2_Transactions, -Unit_4_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 3 Test") %>%  
@@ -464,8 +558,15 @@ barplot(
 
 # Add labels on top of the bars showing the mean grades
 text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+######################################### 
+#UNIT 3 TUTOR USERS
+#########################################
 
-##### UNIT 4 TUTOR USERS
+
+
+######################################### 
+#UNIT 4 TUTOR USERS
+#########################################
 unit4_filtered_data <- final_dataset %>%
   select(-Unit_1_Transactions, -Unit_2_Transactions, -Unit_3_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 4 Test") %>%  
@@ -518,6 +619,67 @@ barplot(
 
 # Add labels on top of the bars showing the mean grades
 text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+######################################### 
+#UNIT 4 TUTOR USERS
+#########################################
+
+######################################### 
+#UNIT 1 Linear Regression
+#########################################
+
+
+
+
+
+
+
+
+######################################### 
+#Tutor Usage Time
+#########################################
+
+View(transactions)
+
+# Extract the day of the week and the hour
+transactions <- transactions %>%
+  mutate(day_of_week = wday(time, label = TRUE, abbr = TRUE),  # Day of the week
+         hour_of_day = hour(time))  # Hour of the day
+
+# Define time ranges (e.g., Morning, Afternoon, Evening, Night)
+transactions <- transactions %>%
+  mutate(time_range = case_when(
+    hour_of_day >= 6 & hour_of_day < 12 ~ "Morning (6a-12p)",
+    hour_of_day >= 12 & hour_of_day < 17 ~ "Afternoon (12p-5p)",
+    hour_of_day >= 17 & hour_of_day < 24 ~ "Evening (5p-12a)",
+    TRUE ~ "Late Night (12a-6a)"
+  ))
+
+# Plot tutor usage by day of the week with labels and log scale
+ggplot(transactions, aes(x = day_of_week)) +
+  geom_bar(fill = "lightblue") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +  # Add labels
+  labs(title = "Tutor Usage by Day of the Week", x = "Day", y = "Number of Tutor Sessions (log scale)") +
+  theme_minimal() +
+  scale_y_log10()  # Apply log scale to y-axis
+
+# Plot tutor usage by time range with labels and log scale
+ggplot(transactions, aes(x = time_range)) +
+  geom_bar(fill = "lightgreen") +
+  geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +  # Add labels
+  labs(title = "Tutor Usage by Time Range", x = "Time Range", y = "Number of Tutor Sessions (log scale)") +
+  theme_minimal() +
+  scale_y_log10()  # Apply log scale to y-axis
+
+
+# Combine day of the week and time range with labels and log scale, and rotate labels
+ggplot(transactions, aes(x = day_of_week, fill = time_range)) +
+  geom_bar(position = position_dodge(width = 0.9)) +  # Adjust bar dodge width
+  geom_text(stat = 'count', aes(label = ..count..), vjust = 0.5, position = position_dodge(width = 0.9), 
+            angle = 45, hjust = -0.2, size = 3) +  # Adjust label dodge width, angle, and size
+  labs(title = "Tutor Usage by Day and Time Range", x = "Day", y = "Number of Tutor Sessions (log scale)") +
+  theme_minimal() +
+  scale_fill_brewer(palette = "Set3") +
+  scale_y_log10()  # Apply log scale to y-axis
 
 
 
