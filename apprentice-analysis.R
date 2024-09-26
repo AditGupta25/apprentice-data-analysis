@@ -90,10 +90,80 @@ write_csv(merged_data_with_transactions, "Documents/GitHub/apprentice-data-analy
 # filter outliers
 #merged_data_with_transactions <- merged_data_with_transactions[merged_data_with_transactions$Transaction_Count<1500,]
 
+####################################
+#Section 3: Demographics Data
+####################################
+
+# Filter and categorize users as tutor and non-tutor based on Transaction_Count
+demographic_dataset <- merged_data_with_transactions %>%
+  mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
+
+#AGE DATA
+# Calculate mean age for each group
+mean_age_data <- demographic_dataset %>%
+  group_by(Tutor_Usage) %>%
+  summarise(Mean_Age = mean(Term_Age, na.rm = TRUE))
+
+# View the calculated mean ages
+print(mean_age_data)
+
+# Create a bar plot
+ggplot(mean_age_data, aes(x = Tutor_Usage, y = Mean_Age, fill = Tutor_Usage)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  labs(title = "Mean Age of Tutor Users vs Non-Tutor Users", x = "Group", y = "Mean Age") +
+  theme_minimal() +
+  scale_fill_manual(values = c("lightblue", "lightgreen")) +
+  geom_text(aes(label = round(Mean_Age, 1)), vjust = -0.5, size = 5)
+
+
+#RACE DATA
+# Count number of users by race and tutor usage
+race_tutor_data <- demographic_dataset %>%
+  group_by(Race, Tutor_Usage) %>%
+  summarise(User_Count = n(), .groups = 'drop')
+
+# View the grouped data
+print(race_tutor_data)
+
+# Create a multi-bar plot
+ggplot(race_tutor_data, aes(x = Race, y = User_Count, fill = Tutor_Usage)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  labs(title = "Distribution of Tutor Users vs Non-Tutor Users by Race",
+       x = "Race", y = "Number of Users") +
+  theme_minimal() +
+  scale_fill_manual(values = c("lightblue", "lightgreen")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  geom_text(aes(label = User_Count), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +  # Add labels
+  scale_y_log10()  # Apply log scale to y-axis
+
+
+#Gender DATA
+
+# Count number of users by race and tutor usage
+gender_tutor_data <- demographic_dataset %>%
+  group_by(Gender, Tutor_Usage) %>%
+  summarise(User_Count = n(), .groups = 'drop')
+
+
+# Create a multi-bar plot with labels and log scale for Gender
+ggplot(gender_tutor_data, aes(x = Gender, y = User_Count, fill = Tutor_Usage)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
+  labs(title = "Distribution of Tutor Users vs Non-Tutor Users by Gender",
+       x = "Gender", y = "Number of Users") +
+  theme_minimal() +
+  scale_fill_manual(values = c("lightblue", "lightgreen")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  geom_text(aes(label = User_Count), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5) +  # Add labels
+  scale_y_log10()  # Apply log scale to y-axis
+
 
 
 ####################################
-#Section 2: Graphs
+#Section 3: Graphs
 ####################################
 
 ##################
