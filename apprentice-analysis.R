@@ -95,90 +95,91 @@ write_csv(merged_data_with_transactions, "Documents/GitHub/apprentice-data-analy
 ####################################
 
 # Filter and categorize users as tutor and non-tutor based on Transaction_Count
-demographic_dataset <- merged_data_with_transactions %>%
-  mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
+#demographic_dataset <- merged_data_with_transactions %>%
+#  mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
 
-#AGE DATA
-# Calculate the count of users in each group
-user_count_data <- demographic_dataset %>%
+View(demographics)
+
+# Categorize Gender with a catch-all for "Others"
+demographic_dataset$Gender <- ifelse(demographic_dataset$Gender %in% c("M", "F"), 
+                                     demographic_dataset$Gender, "Others")
+
+# Calculate the count of users by Tutor Usage and Gender
+gender_tutor_data <- demographic_dataset %>%
+  group_by(Tutor_Usage, Gender) %>%
+  summarise(User_Count = n(), .groups = 'drop')
+
+# Calculate the percentage of users within each Tutor Usage group by Gender
+gender_tutor_data <- gender_tutor_data %>%
   group_by(Tutor_Usage) %>%
-  summarise(User_Count = n())
-
-# Calculate the percentage of users in each group
-user_count_data <- user_count_data %>%
-  mutate(Percentage = User_Count / sum(User_Count) * 100)
+  mutate(Percentage = (User_Count / sum(User_Count)) * 100)
 
 # View the calculated percentages
-print(user_count_data)
+print(gender_tutor_data)
 
-# Create a bar plot with percentages
-ggplot(user_count_data, aes(x = Tutor_Usage, y = Percentage, fill = Tutor_Usage)) +
-  geom_bar(stat = "identity", width = 0.5) +
-  labs(title = "Percentage of Tutor Users vs Non-Tutor Users", x = "Group", y = "Percentage (%)") +
+# Create a multi-bar plot with percentages
+ggplot(gender_tutor_data, aes(x = Tutor_Usage, y = Percentage, fill = Gender)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.9), width = 0.7) +
+  labs(title = "Gender Distribution Among Tutor Users vs Non-Tutor Users", 
+       x = "Tutor Usage", 
+       y = "Percentage (%)") +
   theme_minimal() +
-  scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 5) + 
-  scale_y_log10()  # Apply log scale to y-axis
+  scale_fill_manual(values = c("lightblue", "lightgreen", "pink")) +  # Adjust colors as needed
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, size = 4)
 
 
 
 #RACE DATA
-# Calculate total user count per race
-race_totals <- demographic_dataset %>%
-  group_by(Race) %>%
-  summarise(Total_Users = n())
+# Categorize Race with a catch-all for "Others" if necessary (optional step if there are a lot of races)
+demographic_dataset$Race <- ifelse(demographic_dataset$Race %in% c("Asian", "White", "Black or African American", "Hispanic/Latino", "Two or more races"),
+                                   demographic_dataset$Race, "Others")
 
-# Merge totals back to race_tutor_data to calculate percentages
+# Calculate the count of users in each group (by Tutor Usage and Race)
+race_tutor_data <- demographic_dataset %>%
+  group_by(Tutor_Usage, Race) %>%
+  summarise(User_Count = n(), .groups = 'drop')
+
+# Calculate the percentage of users within each Tutor Usage group by Race
 race_tutor_data <- race_tutor_data %>%
-  left_join(race_totals, by = "Race") %>%
-  mutate(Percentage = (User_Count / Total_Users) * 100)
+  group_by(Tutor_Usage) %>%
+  mutate(Percentage = User_Count / sum(User_Count) * 100)
 
 # View the updated data with percentages
 print(race_tutor_data)
 
-# Create a multi-bar plot with percentages and log scale
-ggplot(race_tutor_data, aes(x = Race, y = Percentage, fill = Tutor_Usage)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  labs(title = "Percentage of Tutor Users vs Non-Tutor Users by Race",
-       x = "Race", y = "Percentage of Users (Log Scale)") +
+# Create a multi-bar plot with percentages
+ggplot(race_tutor_data, aes(x = Tutor_Usage, y = Percentage, fill = Race)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  labs(title = "Race Distribution of Tutor Users vs Non-Tutor Users", 
+       x = "Tutor Usage", 
+       y = "Percentage (%)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("lightblue", "lightgreen", "pink", "orange", "purple", "gray")) +  # Adjust colors as needed
+  theme(axis.text.x = element_text(angle = 0, hjust = 1)) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
+            position = position_dodge(width = 0.7), 
+            vjust = -0.5, size = 4)
+
+
+#AGE DATA
+# Calculate mean age for each Tutor_Usage group
+age_data <- demographic_dataset %>%
+  group_by(Tutor_Usage) %>%
+  summarise(Mean_Age = mean(Term_Age, na.rm = TRUE))
+
+# View the calculated mean ages
+print(age_data)
+
+# Create a bar plot with mean ages
+ggplot(age_data, aes(x = Tutor_Usage, y = Mean_Age, fill = Tutor_Usage)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  labs(title = "Mean Age of Tutor Users vs Non-Tutor Users", x = "Group", y = "Mean Age") +
   theme_minimal() +
   scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
-            position = position_dodge(width = 0.9), 
-            vjust = -0.5) +  # Add labels
-  scale_y_log10()  # Apply log scale to y-axis
-
-
-
-#Gender DATA
-
-# Calculate total user count per gender
-gender_totals <- demographic_dataset %>%
-  group_by(Gender) %>%
-  summarise(Total_Users = n())
-
-# Merge totals back to gender_tutor_data to calculate percentages
-gender_tutor_data <- gender_tutor_data %>%
-  left_join(gender_totals, by = "Gender") %>%
-  mutate(Percentage = (User_Count / Total_Users) * 100)
-
-# View the updated data with percentages
-print(gender_tutor_data)
-
-# Create a multi-bar plot with percentages and log scale for Gender
-ggplot(gender_tutor_data, aes(x = Gender, y = Percentage, fill = Tutor_Usage)) +
-  geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  labs(title = "Percentage of Tutor Users vs Non-Tutor Users by Gender",
-       x = "Gender", y = "Percentage of Users (Log Scale)") +
-  theme_minimal() +
-  scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
-            position = position_dodge(width = 0.9), 
-            vjust = -0.5) +  # Add labels
-  scale_y_log10()  # Apply log scale to y-axis
-
+  geom_text(aes(label = round(Mean_Age, 1)), vjust = -0.5, size = 5)  
 
 
 
