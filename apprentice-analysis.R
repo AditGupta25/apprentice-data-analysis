@@ -71,20 +71,20 @@ filtered_data <- filtered_data %>% distinct()
 merged_data <- demographics %>%
   inner_join(filtered_data, by = "LTI_ID", relationship = "many-to-many")
 
-#View(merged_data)
+View(merged_data)
 
 # Perform the join between merged_data and transaction_counts
 merged_data_with_transactions <- merged_data %>%
   left_join(transaction_counts, by = "LTI_ID")
 
 # View the merged dataset with transaction counts
-# View(merged_data_with_transactions)
+View(merged_data_with_transactions)
 
 # Remove duplicate rows in grades
 merged_data_with_transactions <- merged_data_with_transactions %>% distinct()
 
 # Save the merged dataset to a CSV file
-write_csv(merged_data, "Documents/GitHub/apprentice-data-analysis/merged_data_with_transactions.csv")
+write_csv(merged_data_with_transactions, "Documents/GitHub/apprentice-data-analysis/merged_data_with_transactions.csv")
 
 
 # filter outliers
@@ -373,24 +373,24 @@ overall_mean_grades <- calculate_overall_mean_grade(final_dataset)
 print(overall_mean_grades)
 
 
-
+View(grades)
 
 ######################################### 
 #UNIT 1 TUTOR USERS
 #########################################
-unit1_filtered_data <- final_dataset %>%
+Unit1_filtered_data <- final_dataset %>%
   select(-Unit_2_Transactions, -Unit_3_Transactions, -Unit_4_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 1 Test") %>%  
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(unit1_filtered_data)
+View(Unit1_filtered_data)
 
-write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/unit1_filtered_data.csv")
+write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit1_filtered_data.csv")
 
 
 # Filter students who used tutors (Unit_1_Transactions is not NA)
-unit1_students_used_tutors <- unit1_filtered_data %>%
+unit1_students_used_tutors <- Unit1_filtered_data %>%
   filter(!is.na(Unit_1_Transactions) & Unit_1_Transactions > 0)
 
 # Calculate the mean grade for these students
@@ -436,6 +436,32 @@ barplot(
 
 # Add labels on top of the bars showing the mean grades
 text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
+
+# Boxplot to inspect variance in the groups
+boxplot(unit1_students_used_tutors$Percentage, unit1_students_not_used_tutors$Percentage,
+        names = c("Used Tutors", "Not Used Tutors"),
+        main = "Unit 1 Mean Grades: Tutor Users vs Non-Tutor Users",
+        ylab = "Mean Grade (%)")
+
+# Add labels to the boxplot
+text(x = 1, y = unit1_mean_grade_used_tutors, labels = round(unit1_mean_grade_used_tutors, 1), pos = 3, col = "blue")
+text(x = 2, y = unit1_mean_grade_not_used_tutors, labels = round(unit1_mean_grade_not_used_tutors, 1), pos = 3, col = "blue")
+
+# Scatter plot for Unit 3 tutor users
+ggplot(unit1_students_used_tutors, aes(x = Unit_1_Transactions, y = Percentage)) +
+  geom_point(color = "blue", alpha = 0.7) +  # Scatter plot points
+  geom_smooth(method = "lm", se = TRUE, color = "black") +  # Line of best fit with standard error band
+  labs(title = "Unit 1: Scatter Plot of Grades vs Tutor Transactions for Tutor Users",
+       x = "Number of Tutor Transactions",
+       y = "Grade Percentage") +
+  theme_minimal()
+
+# Fit the linear model
+regression_model <- lm(Percentage ~ Unit_1_Transactions, data = unit1_students_used_tutors)
+
+# Summarize the model to get p-values and other statistics
+summary(regression_model)
+
 ######################################### 
 #UNIT 1 TUTOR USERS
 #########################################
@@ -445,16 +471,19 @@ text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
 ######################################### 
 #UNIT 2 TUTOR USERS
 #########################################
-unit2_filtered_data <- final_dataset %>%
+Unit2_filtered_data <- final_dataset %>%
   select(-Unit_1_Transactions, -Unit_3_Transactions, -Unit_4_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 2 Test") %>%  
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(unit2_filtered_data)
+View(Unit2_filtered_data)
 
-# Filter students who used tutors (Unit_2_Transactions is not NA)
-unit2_students_used_tutors <- unit2_filtered_data %>%
+write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit2_filtered_data.csv")
+
+
+# Filter students who used tutors (Unit_1_Transactions is not NA)
+unit2_students_used_tutors <- Unit2_filtered_data %>%
   filter(!is.na(Unit_2_Transactions) & Unit_2_Transactions > 0)
 
 # Calculate the mean grade for these students
@@ -465,8 +494,8 @@ unit2_mean_grade_used_tutors <- unit2_students_used_tutors %>%
 unit2_mean_grade_used_tutors
 
 ##### UNIT 2 NON TUTOR USERS
-# Filter students who did not use tutors (Unit_2_Transactions is NA or 0)
-unit2_students_not_used_tutors <- unit2_filtered_data %>%
+# Filter students who did not use tutors (Unit_1_Transactions is NA or 0)
+unit2_students_not_used_tutors <- final_dataset %>%
   filter(is.na(Unit_2_Transactions) | Unit_2_Transactions == 0)
 
 # Calculate the mean grade for these students
@@ -479,15 +508,18 @@ unit2_mean_grade_not_used_tutors
 # Create a data frame with the values
 data <- data.frame(
   Group = c("Used Tutors", "Not Used Tutors"),
-  Mean_Grade = c(unit2_mean_grade_used_tutors$mean_grade, unit2_mean_grade_not_used_tutors$mean_grade)
+  Mean_Grade = c(unit2_mean_grade_used_tutors, unit2_mean_grade_not_used_tutors)
 )
+
+# Extract the mean grades for the two groups
+mean_grades <- c(data$Mean_Grade.mean_grade[1], data$Mean_Grade.mean_grade.1[1])
 
 # Group names for the plot
 groups <- c("Used Tutors", "Not Used Tutors")
 
 # Create the bar plot
 barplot(
-  height = data$Mean_Grade, 
+  height = mean_grades, 
   names.arg = groups,
   col = c("lightblue", "lightgreen"),
   main = "Unit 2 Mean Grades: Tutor Users vs Non-Tutor Users",
@@ -496,7 +528,32 @@ barplot(
 )
 
 # Add labels on top of the bars showing the mean grades
-text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
+
+# Boxplot to inspect variance in the groups
+boxplot(unit2_students_used_tutors$Percentage, unit2_students_not_used_tutors$Percentage,
+        names = c("Used Tutors", "Not Used Tutors"),
+        main = "Unit 2 Mean Grades: Tutor Users vs Non-Tutor Users",
+        ylab = "Mean Grade (%)")
+
+# Add labels to the boxplot
+text(x = 1, y = unit2_mean_grade_used_tutors, labels = round(unit2_mean_grade_used_tutors, 1), pos = 3, col = "blue")
+text(x = 2, y = unit2_mean_grade_not_used_tutors, labels = round(unit2_mean_grade_not_used_tutors, 1), pos = 3, col = "blue")
+
+# Scatter plot for Unit 3 tutor users
+ggplot(unit2_students_used_tutors, aes(x = Unit_2_Transactions, y = Percentage)) +
+  geom_point(color = "blue", alpha = 0.7) +  # Scatter plot points
+  geom_smooth(method = "lm", se = TRUE, color = "black") +  # Line of best fit with standard error band
+  labs(title = "Unit 2: Scatter Plot of Grades vs Tutor Transactions for Tutor Users",
+       x = "Number of Tutor Transactions",
+       y = "Grade Percentage") +
+  theme_minimal()
+
+# Fit the linear model
+regression_model <- lm(Percentage ~ Unit_2_Transactions, data = unit2_students_used_tutors)
+
+# Summarize the model to get p-values and other statistics
+summary(regression_model)
 ######################################### 
 #UNIT 2 TUTOR USERS
 #########################################
@@ -506,16 +563,19 @@ text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos =
 ######################################### 
 #UNIT 3 TUTOR USERS
 #########################################
-unit3_filtered_data <- final_dataset %>%
+Unit3_filtered_data <- final_dataset %>%
   select(-Unit_1_Transactions, -Unit_2_Transactions, -Unit_4_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 3 Test") %>%  
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(unit3_filtered_data)
+View(Unit3_filtered_data)
 
-# Filter students who used tutors (Unit_3_Transactions is not NA)
-unit3_students_used_tutors <- unit3_filtered_data %>%
+write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit3_filtered_data.csv")
+
+
+# Filter students who used tutors (Unit_1_Transactions is not NA)
+unit3_students_used_tutors <- Unit3_filtered_data %>%
   filter(!is.na(Unit_3_Transactions) & Unit_3_Transactions > 0)
 
 # Calculate the mean grade for these students
@@ -525,9 +585,9 @@ unit3_mean_grade_used_tutors <- unit3_students_used_tutors %>%
 # View the result
 unit3_mean_grade_used_tutors
 
-##### UNIT 3 NON TUTOR USERS
-# Filter students who did not use tutors (Unit_3_Transactions is NA or 0)
-unit3_students_not_used_tutors <- unit3_filtered_data %>%
+##### UNIT 2 NON TUTOR USERS
+# Filter students who did not use tutors (Unit_1_Transactions is NA or 0)
+unit3_students_not_used_tutors <- final_dataset %>%
   filter(is.na(Unit_3_Transactions) | Unit_3_Transactions == 0)
 
 # Calculate the mean grade for these students
@@ -540,15 +600,18 @@ unit3_mean_grade_not_used_tutors
 # Create a data frame with the values
 data <- data.frame(
   Group = c("Used Tutors", "Not Used Tutors"),
-  Mean_Grade = c(unit3_mean_grade_used_tutors$mean_grade, unit3_mean_grade_not_used_tutors$mean_grade)
+  Mean_Grade = c(unit3_mean_grade_used_tutors, unit3_mean_grade_not_used_tutors)
 )
+
+# Extract the mean grades for the two groups
+mean_grades <- c(data$Mean_Grade.mean_grade[1], data$Mean_Grade.mean_grade.1[1])
 
 # Group names for the plot
 groups <- c("Used Tutors", "Not Used Tutors")
 
 # Create the bar plot
 barplot(
-  height = data$Mean_Grade, 
+  height = mean_grades, 
   names.arg = groups,
   col = c("lightblue", "lightgreen"),
   main = "Unit 3 Mean Grades: Tutor Users vs Non-Tutor Users",
@@ -557,7 +620,32 @@ barplot(
 )
 
 # Add labels on top of the bars showing the mean grades
-text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
+
+# Boxplot to inspect variance in the groups
+boxplot(unit3_students_used_tutors$Percentage, unit3_students_not_used_tutors$Percentage,
+        names = c("Used Tutors", "Not Used Tutors"),
+        main = "Unit 3 Mean Grades: Tutor Users vs Non-Tutor Users",
+        ylab = "Mean Grade (%)")
+
+# Add labels to the boxplot
+text(x = 1, y = unit3_mean_grade_used_tutors, labels = round(unit3_mean_grade_used_tutors, 1), pos = 3, col = "blue")
+text(x = 2, y = unit3_mean_grade_not_used_tutors, labels = round(unit3_mean_grade_not_used_tutors, 1), pos = 3, col = "blue")
+
+# Scatter plot for Unit 3 tutor users
+ggplot(unit3_students_used_tutors, aes(x = Unit_3_Transactions, y = Percentage)) +
+  geom_point(color = "blue", alpha = 0.7) +  # Scatter plot points
+  geom_smooth(method = "lm", se = TRUE, color = "black") +  # Line of best fit with standard error band
+  labs(title = "Unit 3: Scatter Plot of Grades vs Tutor Transactions for Tutor Users",
+       x = "Number of Tutor Transactions",
+       y = "Grade Percentage") +
+  theme_minimal()
+
+# Fit the linear model
+regression_model <- lm(Percentage ~ Unit_3_Transactions, data = unit3_students_used_tutors)
+
+# Summarize the model to get p-values and other statistics
+summary(regression_model)
 ######################################### 
 #UNIT 3 TUTOR USERS
 #########################################
@@ -567,16 +655,19 @@ text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos =
 ######################################### 
 #UNIT 4 TUTOR USERS
 #########################################
-unit4_filtered_data <- final_dataset %>%
+Unit4_filtered_data <- final_dataset %>%
   select(-Unit_1_Transactions, -Unit_2_Transactions, -Unit_3_Transactions, -LTI_IDs) %>%
   filter(Display_Column_Name == "Unit 4 Test") %>%  
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(unit4_filtered_data)
+View(Unit4_filtered_data)
 
-# Filter students who used tutors (Unit_4_Transactions is not NA)
-unit4_students_used_tutors <- unit4_filtered_data %>%
+write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit4_filtered_data.csv")
+
+
+# Filter students who used tutors (Unit_1_Transactions is not NA)
+unit4_students_used_tutors <- Unit4_filtered_data %>%
   filter(!is.na(Unit_4_Transactions) & Unit_4_Transactions > 0)
 
 # Calculate the mean grade for these students
@@ -586,9 +677,9 @@ unit4_mean_grade_used_tutors <- unit4_students_used_tutors %>%
 # View the result
 unit4_mean_grade_used_tutors
 
-##### UNIT 4 NON TUTOR USERS
-# Filter students who did not use tutors (Unit_4_Transactions is NA or 0)
-unit4_students_not_used_tutors <- unit4_filtered_data %>%
+##### UNIT 2 NON TUTOR USERS
+# Filter students who did not use tutors (Unit_1_Transactions is NA or 0)
+unit4_students_not_used_tutors <- final_dataset %>%
   filter(is.na(Unit_4_Transactions) | Unit_4_Transactions == 0)
 
 # Calculate the mean grade for these students
@@ -601,15 +692,18 @@ unit4_mean_grade_not_used_tutors
 # Create a data frame with the values
 data <- data.frame(
   Group = c("Used Tutors", "Not Used Tutors"),
-  Mean_Grade = c(unit4_mean_grade_used_tutors$mean_grade, unit4_mean_grade_not_used_tutors$mean_grade)
+  Mean_Grade = c(unit4_mean_grade_used_tutors, unit4_mean_grade_not_used_tutors)
 )
+
+# Extract the mean grades for the two groups
+mean_grades <- c(data$Mean_Grade.mean_grade[1], data$Mean_Grade.mean_grade.1[1])
 
 # Group names for the plot
 groups <- c("Used Tutors", "Not Used Tutors")
 
 # Create the bar plot
 barplot(
-  height = data$Mean_Grade, 
+  height = mean_grades, 
   names.arg = groups,
   col = c("lightblue", "lightgreen"),
   main = "Unit 4 Mean Grades: Tutor Users vs Non-Tutor Users",
@@ -618,7 +712,32 @@ barplot(
 )
 
 # Add labels on top of the bars showing the mean grades
-text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
+text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
+
+# Boxplot to inspect variance in the groups
+boxplot(unit4_students_used_tutors$Percentage, unit4_students_not_used_tutors$Percentage,
+        names = c("Used Tutors", "Not Used Tutors"),
+        main = "Unit 4 Mean Grades: Tutor Users vs Non-Tutor Users",
+        ylab = "Mean Grade (%)")
+
+# Add labels to the boxplot
+text(x = 1, y = unit4_mean_grade_used_tutors, labels = round(unit4_mean_grade_used_tutors, 1), pos = 3, col = "blue")
+text(x = 2, y = unit4_mean_grade_not_used_tutors, labels = round(unit4_mean_grade_not_used_tutors, 1), pos = 3, col = "blue")
+
+# Scatter plot for Unit 4 tutor users
+ggplot(unit4_students_used_tutors, aes(x = Unit_4_Transactions, y = Percentage)) +
+  geom_point(color = "blue", alpha = 0.7) +  # Scatter plot points
+  geom_smooth(method = "lm", se = TRUE, color = "black") +  # Line of best fit with standard error band
+  labs(title = "Unit 4: Scatter Plot of Grades vs Tutor Transactions for Tutor Users",
+       x = "Number of Tutor Transactions",
+       y = "Grade Percentage") +
+  theme_minimal()
+
+# Fit the linear model
+regression_model <- lm(Percentage ~ Unit_4_Transactions, data = unit4_students_used_tutors)
+
+# Summarize the model to get p-values and other statistics
+summary(regression_model)
 ######################################### 
 #UNIT 4 TUTOR USERS
 #########################################
@@ -681,6 +800,30 @@ ggplot(transactions, aes(x = day_of_week, fill = time_range)) +
   scale_fill_brewer(palette = "Set3") +
   scale_y_log10()  # Apply log scale to y-axis
 
+
+######################################### 
+#Unique Sessions Per LTI ID and Retention
+#########################################
+
+# Sort by user and time, calculate time differences, and identify new sessions
+transactions_with_sessions <- transactions %>%
+  arrange(LTI_ID, time) %>%
+  group_by(LTI_ID) %>%
+  mutate(time_diff = difftime(time, lag(time), units = "mins"),
+         new_session = ifelse(is.na(time_diff) | time_diff >= 10, 1, 0)) %>%
+  mutate(session_id = cumsum(new_session))  # Cumulative sum of new sessions
+
+# Summarize the number of sessions per user
+unique_sessions <- transactions_with_sessions %>%
+  summarise(unique_session_count = n_distinct(session_id))
+
+# View the results
+View(unique_sessions)
+
+
+######################################### 
+#Demographics: 
+#########################################
 
 
 
