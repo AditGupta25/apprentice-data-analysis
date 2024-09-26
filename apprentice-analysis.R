@@ -99,66 +99,86 @@ demographic_dataset <- merged_data_with_transactions %>%
   mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
 
 #AGE DATA
-# Calculate mean age for each group
-mean_age_data <- demographic_dataset %>%
+# Calculate the count of users in each group
+user_count_data <- demographic_dataset %>%
   group_by(Tutor_Usage) %>%
-  summarise(Mean_Age = mean(Term_Age, na.rm = TRUE))
+  summarise(User_Count = n())
 
-# View the calculated mean ages
-print(mean_age_data)
+# Calculate the percentage of users in each group
+user_count_data <- user_count_data %>%
+  mutate(Percentage = User_Count / sum(User_Count) * 100)
 
-# Create a bar plot
-ggplot(mean_age_data, aes(x = Tutor_Usage, y = Mean_Age, fill = Tutor_Usage)) +
+# View the calculated percentages
+print(user_count_data)
+
+# Create a bar plot with percentages
+ggplot(user_count_data, aes(x = Tutor_Usage, y = Percentage, fill = Tutor_Usage)) +
   geom_bar(stat = "identity", width = 0.5) +
-  labs(title = "Mean Age of Tutor Users vs Non-Tutor Users", x = "Group", y = "Mean Age") +
+  labs(title = "Percentage of Tutor Users vs Non-Tutor Users", x = "Group", y = "Percentage (%)") +
   theme_minimal() +
   scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  geom_text(aes(label = round(Mean_Age, 1)), vjust = -0.5, size = 5)
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), vjust = -0.5, size = 5) + 
+  scale_y_log10()  # Apply log scale to y-axis
+
 
 
 #RACE DATA
-# Count number of users by race and tutor usage
-race_tutor_data <- demographic_dataset %>%
-  group_by(Race, Tutor_Usage) %>%
-  summarise(User_Count = n(), .groups = 'drop')
+# Calculate total user count per race
+race_totals <- demographic_dataset %>%
+  group_by(Race) %>%
+  summarise(Total_Users = n())
 
-# View the grouped data
+# Merge totals back to race_tutor_data to calculate percentages
+race_tutor_data <- race_tutor_data %>%
+  left_join(race_totals, by = "Race") %>%
+  mutate(Percentage = (User_Count / Total_Users) * 100)
+
+# View the updated data with percentages
 print(race_tutor_data)
 
-# Create a multi-bar plot
-ggplot(race_tutor_data, aes(x = Race, y = User_Count, fill = Tutor_Usage)) +
+# Create a multi-bar plot with percentages and log scale
+ggplot(race_tutor_data, aes(x = Race, y = Percentage, fill = Tutor_Usage)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  labs(title = "Distribution of Tutor Users vs Non-Tutor Users by Race",
-       x = "Race", y = "Number of Users") +
+  labs(title = "Percentage of Tutor Users vs Non-Tutor Users by Race",
+       x = "Race", y = "Percentage of Users (Log Scale)") +
   theme_minimal() +
   scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  geom_text(aes(label = User_Count), 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
             position = position_dodge(width = 0.9), 
             vjust = -0.5) +  # Add labels
   scale_y_log10()  # Apply log scale to y-axis
+
 
 
 #Gender DATA
 
-# Count number of users by race and tutor usage
-gender_tutor_data <- demographic_dataset %>%
-  group_by(Gender, Tutor_Usage) %>%
-  summarise(User_Count = n(), .groups = 'drop')
+# Calculate total user count per gender
+gender_totals <- demographic_dataset %>%
+  group_by(Gender) %>%
+  summarise(Total_Users = n())
 
+# Merge totals back to gender_tutor_data to calculate percentages
+gender_tutor_data <- gender_tutor_data %>%
+  left_join(gender_totals, by = "Gender") %>%
+  mutate(Percentage = (User_Count / Total_Users) * 100)
 
-# Create a multi-bar plot with labels and log scale for Gender
-ggplot(gender_tutor_data, aes(x = Gender, y = User_Count, fill = Tutor_Usage)) +
+# View the updated data with percentages
+print(gender_tutor_data)
+
+# Create a multi-bar plot with percentages and log scale for Gender
+ggplot(gender_tutor_data, aes(x = Gender, y = Percentage, fill = Tutor_Usage)) +
   geom_bar(stat = "identity", position = position_dodge(width = 0.9)) +
-  labs(title = "Distribution of Tutor Users vs Non-Tutor Users by Gender",
-       x = "Gender", y = "Number of Users") +
+  labs(title = "Percentage of Tutor Users vs Non-Tutor Users by Gender",
+       x = "Gender", y = "Percentage of Users (Log Scale)") +
   theme_minimal() +
   scale_fill_manual(values = c("lightblue", "lightgreen")) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  geom_text(aes(label = User_Count), 
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
             position = position_dodge(width = 0.9), 
             vjust = -0.5) +  # Add labels
   scale_y_log10()  # Apply log scale to y-axis
+
 
 
 
@@ -375,6 +395,9 @@ write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/unitgrades_t
 #UNIT 1,2,3,4 TUTOR USERS
 #########################################
 # Define a function to calculate mean grades for tutor users and non-tutor users across all units
+library(dplyr)
+library(ggplot2)
+
 calculate_overall_mean_grade <- function(final_dataset) {
   # Create a helper function to process each unit
   process_unit <- function(unit_number, transactions_col) {
@@ -387,19 +410,26 @@ calculate_overall_mean_grade <- function(final_dataset) {
     students_used_tutors <- filtered_data %>%
       filter(!is.na(.data[[transactions_col]]) & .data[[transactions_col]] > 0)
     
-    # Calculate the mean grade for these students
+    # Calculate the mean and standard error for tutor users
     mean_grade_used_tutors <- students_used_tutors %>%
-      summarise(mean_grade = mean(Percentage, na.rm = TRUE))
+      summarise(mean_grade = mean(Percentage, na.rm = TRUE),
+                se = sd(Percentage, na.rm = TRUE) / sqrt(n()))
     
     # Filter students who did not use tutors
     students_not_used_tutors <- filtered_data %>%
       filter(is.na(.data[[transactions_col]]) | .data[[transactions_col]] == 0)
     
-    # Calculate the mean grade for these students
+    # Calculate the mean and standard error for non-tutor users
     mean_grade_not_used_tutors <- students_not_used_tutors %>%
-      summarise(mean_grade = mean(Percentage, na.rm = TRUE))
+      summarise(mean_grade = mean(Percentage, na.rm = TRUE),
+                se = sd(Percentage, na.rm = TRUE) / sqrt(n()))
     
-    return(list(used_tutors = mean_grade_used_tutors$mean_grade, not_used_tutors = mean_grade_not_used_tutors$mean_grade))
+    return(list(
+      used_tutors = mean_grade_used_tutors$mean_grade, 
+      not_used_tutors = mean_grade_not_used_tutors$mean_grade,
+      se_used = mean_grade_used_tutors$se,
+      se_not_used = mean_grade_not_used_tutors$se
+    ))
   }
   
   # Process all units (1 through 4)
@@ -408,42 +438,41 @@ calculate_overall_mean_grade <- function(final_dataset) {
   unit_3 <- process_unit(3, "Unit_3_Transactions")
   unit_4 <- process_unit(4, "Unit_4_Transactions")
   
-  # Calculate the overall mean grade for tutor users across all units
-  overall_mean_grade_used_tutors <- mean(c(unit_1$used_tutors, unit_2$used_tutors, unit_3$used_tutors, unit_4$used_tutors), na.rm = TRUE)
+  # Combine the mean grades and standard errors across all units
+  mean_grades_used_tutors <- c(unit_1$used_tutors, unit_2$used_tutors, unit_3$used_tutors, unit_4$used_tutors)
+  mean_grades_not_used_tutors <- c(unit_1$not_used_tutors, unit_2$not_used_tutors, unit_3$not_used_tutors, unit_4$not_used_tutors)
   
-  # Calculate the overall mean grade for non-tutor users across all units
-  overall_mean_grade_not_used_tutors <- mean(c(unit_1$not_used_tutors, unit_2$not_used_tutors, unit_3$not_used_tutors, unit_4$not_used_tutors), na.rm = TRUE)
+  overall_mean_grade_used_tutors <- mean(mean_grades_used_tutors, na.rm = TRUE)
+  overall_mean_grade_not_used_tutors <- mean(mean_grades_not_used_tutors, na.rm = TRUE)
   
-  # Create a data frame with the values
+  # Calculate overall standard errors for both groups
+  overall_se_used_tutors <- sd(mean_grades_used_tutors, na.rm = TRUE) / sqrt(length(mean_grades_used_tutors))
+  overall_se_not_used_tutors <- sd(mean_grades_not_used_tutors, na.rm = TRUE) / sqrt(length(mean_grades_not_used_tutors))
+  
+  # Create a data frame with the mean grades and their standard errors
   data <- data.frame(
     Group = c("Used Tutors", "Not Used Tutors"),
-    Mean_Grade = c(overall_mean_grade_used_tutors, overall_mean_grade_not_used_tutors)
+    Mean_Grade = c(overall_mean_grade_used_tutors, overall_mean_grade_not_used_tutors),
+    SE = c(overall_se_used_tutors, overall_se_not_used_tutors)
   )
   
-  # Create the bar plot
-  barplot(
-    height = data$Mean_Grade, 
-    names.arg = data$Group,
-    col = c("lightblue", "lightgreen"),
-    main = "Overall Mean Grades: Tutor Users vs Non-Tutor Users",
-    ylab = "Mean Grade (%)",
-    ylim = c(0, 100)  # Adjust as necessary to fit the mean grade range
-  )
-  
-  # Add labels on top of the bars showing the mean grades
-  text(x = c(1, 2), y = data$Mean_Grade, labels = round(data$Mean_Grade, 1), pos = 3)
-  
-  return(data)
+  # Create the bar plot with error bars
+  ggplot(data, aes(x = Group, y = Mean_Grade, fill = Group)) +
+   #stat_summary(fun.data = Mean_Grade, geom = "errorbar", width=0.025, alpha=0.7)
+    geom_bar(stat = "identity", width = 0.5) +
+    geom_errorbar(aes(ymin = Mean_Grade - SE, ymax = Mean_Grade + SE), width = 0.2) +
+    labs(title = "Overall Mean Grades: Tutor Users vs Non-Tutor Users",
+         x = "Group", y = "Mean Grade (%)") +
+    theme_minimal() +
+    scale_fill_manual(values = c("lightblue", "lightgreen")) +
+    geom_text(aes(label = round(Mean_Grade, 1)), vjust = -0.5, size = 5)
 }
+
 
 # Call the function with your dataset
 overall_mean_grades <- calculate_overall_mean_grade(final_dataset)
 
-# View the results
 print(overall_mean_grades)
-
-
-View(grades)
 
 ######################################### 
 #UNIT 1 TUTOR USERS
@@ -482,27 +511,29 @@ unit1_mean_grade_not_used_tutors <- unit1_students_not_used_tutors %>%
 # View the result
 unit1_mean_grade_not_used_tutors
 
-# Create a data frame with the values
+# Extract the mean_grade values as numeric
+unit1_mean_grade_used_tutors_value <- unit1_mean_grade_used_tutors$mean_grade[1]
+unit1_mean_grade_not_used_tutors_value <- unit1_mean_grade_not_used_tutors$mean_grade[1]
+
+# Create a data frame with the mean values (since stat_summary will calculate the error bars)
 data <- data.frame(
   Group = c("Used Tutors", "Not Used Tutors"),
-  Mean_Grade = c(unit1_mean_grade_used_tutors, unit1_mean_grade_not_used_tutors)
+  Mean_Grade = c(unit1_mean_grade_used_tutors$mean_grade, unit1_mean_grade_not_used_tutors$mean_grade)
 )
 
-# Extract the mean grades for the two groups
-mean_grades <- c(data$Mean_Grade.mean_grade[1], data$Mean_Grade.mean_grade.1[1])
+# Save the plot to an object
+my_plot <- ggplot(data, aes(x = Group, y = Mean_Grade, fill = Group)) +
+  geom_bar(stat = "identity", width = 0.5) +
+  stat_summary(fun.data = mean_cl_boot, geom = "errorbar", width = 0.2, alpha = 0.7) +
+  labs(title = "Unit 1 Mean Grades: Tutor Users vs Non-Tutor Users",
+       x = "Group", y = "Mean Grade (%)") +
+  theme_minimal() +
+  scale_fill_manual(values = c("lightblue", "lightgreen")) +
+  geom_text(aes(label = round(Mean_Grade, 1)), vjust = -0.5, size = 5) +
+  ylim(0, 100)
 
-# Group names for the plot
-groups <- c("Used Tutors", "Not Used Tutors")
-
-# Create the bar plot
-barplot(
-  height = mean_grades, 
-  names.arg = groups,
-  col = c("lightblue", "lightgreen"),
-  main = "Unit 1 Mean Grades: Tutor Users vs Non-Tutor Users",
-  ylab = "Mean Grade (%)",
-  ylim = c(0, 100)  # Adjust as necessary to fit the mean grade range
-)
+# Print the plot
+print(my_plot)
 
 # Add labels on top of the bars showing the mean grades
 text(x = c(1, 2), y = mean_grades, labels = round(mean_grades, 1), pos = 3)
@@ -517,7 +548,7 @@ boxplot(unit1_students_used_tutors$Percentage, unit1_students_not_used_tutors$Pe
 text(x = 1, y = unit1_mean_grade_used_tutors, labels = round(unit1_mean_grade_used_tutors, 1), pos = 3, col = "blue")
 text(x = 2, y = unit1_mean_grade_not_used_tutors, labels = round(unit1_mean_grade_not_used_tutors, 1), pos = 3, col = "blue")
 
-# Scatter plot for Unit 3 tutor users
+# Scatter plot for Unit 1 tutor users
 ggplot(unit1_students_used_tutors, aes(x = Unit_1_Transactions, y = Percentage)) +
   geom_point(color = "blue", alpha = 0.7) +  # Scatter plot points
   geom_smooth(method = "lm", se = TRUE, color = "black") +  # Line of best fit with standard error band
@@ -847,17 +878,17 @@ transactions <- transactions %>%
 ggplot(transactions, aes(x = day_of_week)) +
   geom_bar(fill = "lightblue") +
   geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +  # Add labels
-  labs(title = "Tutor Usage by Day of the Week", x = "Day", y = "Number of Tutor Sessions (log scale)") +
-  theme_minimal() +
-  scale_y_log10()  # Apply log scale to y-axis
+  labs(title = "Tutor Usage by Day of the Week", x = "Day", y = "Number of Tutor Transactions (log scale)") +
+  theme_minimal() 
+  #scale_y_log10()  # Apply log scale to y-axis
 
 # Plot tutor usage by time range with labels and log scale
 ggplot(transactions, aes(x = time_range)) +
   geom_bar(fill = "lightgreen") +
   geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +  # Add labels
-  labs(title = "Tutor Usage by Time Range", x = "Time Range", y = "Number of Tutor Sessions (log scale)") +
-  theme_minimal() +
-  scale_y_log10()  # Apply log scale to y-axis
+  labs(title = "Tutor Usage by Time Range", x = "Time Range", y = "Number of Tutor Transactions (log scale)") +
+  theme_minimal() 
+  #scale_y_log10()  # Apply log scale to y-axis
 
 
 # Combine day of the week and time range with labels and log scale, and rotate labels
@@ -865,10 +896,10 @@ ggplot(transactions, aes(x = day_of_week, fill = time_range)) +
   geom_bar(position = position_dodge(width = 0.9)) +  # Adjust bar dodge width
   geom_text(stat = 'count', aes(label = ..count..), vjust = 0.5, position = position_dodge(width = 0.9), 
             angle = 45, hjust = -0.2, size = 3) +  # Adjust label dodge width, angle, and size
-  labs(title = "Tutor Usage by Day and Time Range", x = "Day", y = "Number of Tutor Sessions (log scale)") +
+  labs(title = "Tutor Usage by Day and Time Range", x = "Day", y = "Number of Tutor Transactions (log scale)") +
   theme_minimal() +
-  scale_fill_brewer(palette = "Set3") +
-  scale_y_log10()  # Apply log scale to y-axis
+  scale_fill_brewer(palette = "Set3") 
+  #scale_y_log10()  # Apply log scale to y-axis
 
 
 ######################################### 
