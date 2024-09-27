@@ -132,8 +132,7 @@ ggplot(gender_tutor_data, aes(x = Tutor_Usage, y = Percentage, fill = Gender)) +
 
 
 
-#RACE DATA
-# Categorize Race with a catch-all for "Others" if necessary (optional step if there are a lot of races)
+# Categorize Race with a catch-all for "Others"
 demographic_dataset$Race <- ifelse(demographic_dataset$Race %in% c("Asian", "White", "Black or African American", "Hispanic/Latino", "Two or more races"),
                                    demographic_dataset$Race, "Others")
 
@@ -142,9 +141,9 @@ race_tutor_data <- demographic_dataset %>%
   group_by(Race, Tutor_Usage) %>%
   summarise(User_Count = n(), .groups = 'drop')
 
-# Calculate the percentage of users within each Race group by Tutor Usage
+# Calculate the percentage of users within each Tutor_Usage group by Race
 race_tutor_data <- race_tutor_data %>%
-  group_by(Race) %>%
+  group_by(Tutor_Usage) %>%
   mutate(Percentage = User_Count / sum(User_Count) * 100)
 
 # View the updated data with percentages
@@ -155,13 +154,14 @@ ggplot(race_tutor_data, aes(x = Race, y = Percentage, fill = Tutor_Usage)) +
   geom_bar(stat = "identity", position = "dodge", width = 0.7) +
   labs(title = "Tutor Usage Distribution by Race", 
        x = "Race", 
-       y = "Percentage (%)") +
+       y = "Percentage (%) within Tutor Usage") +
   theme_minimal() +
   scale_fill_manual(values = c("lightblue", "lightgreen")) +  # Adjust colors as needed
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   geom_text(aes(label = paste0(round(Percentage, 1), "%")), 
             position = position_dodge(width = 0.7), 
             vjust = -0.5, size = 4)
+
 
 
 
