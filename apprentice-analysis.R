@@ -57,7 +57,7 @@ grades <- grades %>%
 transactions <- transactions %>%
   filter(!is.na(LTI_ID) & LTI_ID != "null" & LTI_ID != "")
 
-View(transactions)
+#View(transactions)
 
 # Calculate the number of occurrences for each unique LTI_ID in the transactions dataset
 transaction_counts <- transactions %>%
@@ -71,14 +71,14 @@ filtered_data <- filtered_data %>% distinct()
 merged_data <- demographics %>%
   inner_join(filtered_data, by = "LTI_ID", relationship = "many-to-many")
 
-View(merged_data)
+#View(merged_data)
 
 # Perform the join between merged_data and transaction_counts
 merged_data_with_transactions <- merged_data %>%
   left_join(transaction_counts, by = "LTI_ID")
 
 # View the merged dataset with transaction counts
-View(merged_data_with_transactions)
+#View(merged_data_with_transactions)
 
 # Remove duplicate rows in grades
 merged_data_with_transactions <- merged_data_with_transactions %>% distinct()
@@ -98,7 +98,7 @@ write_csv(merged_data_with_transactions, "Documents/GitHub/apprentice-data-analy
 #demographic_dataset <- merged_data_with_transactions %>%
 #  mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
 
-View(demographics)
+#View(demographics)
 
 # Categorize Gender with a catch-all for "Others"
 demographic_dataset$Gender <- ifelse(demographic_dataset$Gender %in% c("M", "F"), 
@@ -378,7 +378,7 @@ unit_usage_summary <- unit_usage_summary %>%
   mutate(across(starts_with("Unit_"), ~replace_na(., 0)))
 
 # View the summary of transactions per LTI ID
-View(unit_usage_summary)
+#View(unit_usage_summary)
 
 
 final_dataset <- grades_with_tutors %>%
@@ -485,7 +485,7 @@ Unit1_filtered_data <- final_dataset %>%
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(Unit1_filtered_data)
+# View(Unit1_filtered_data)
 
 write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit1_filtered_data.csv")
 
@@ -580,7 +580,7 @@ Unit2_filtered_data <- final_dataset %>%
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(Unit2_filtered_data)
+# View(Unit2_filtered_data)
 
 write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit2_filtered_data.csv")
 
@@ -672,7 +672,7 @@ Unit3_filtered_data <- final_dataset %>%
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(Unit3_filtered_data)
+# View(Unit3_filtered_data)
 
 write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit3_filtered_data.csv")
 
@@ -764,7 +764,7 @@ Unit4_filtered_data <- final_dataset %>%
   distinct(LTI_ID, .keep_all = TRUE)
 
 # View the filtered data
-View(Unit4_filtered_data)
+# View(Unit4_filtered_data)
 
 write_csv(final_dataset, "Documents/GitHub/apprentice-data-analysis/Unit4_filtered_data.csv")
 
@@ -860,7 +860,7 @@ summary(regression_model)
 #Tutor Usage Time
 #########################################
 
-View(transactions)
+# View(transactions)
 
 # Extract the day of the week and the hour
 transactions <- transactions %>%
@@ -921,12 +921,58 @@ unique_sessions <- transactions_with_sessions %>%
   summarise(unique_session_count = n_distinct(session_id))
 
 # View the results
-View(unique_sessions)
+# View(unique_sessions)
 
 
-######################################### 
-#Demographics: 
-#########################################
+################################################################################## 
+#How Unit 1 Test Takers who did NOT use tutors in the future 
+# Finding: Users who used the tutors in unit 1 and not in other units performed the best in unit 1
+################################################################################## 
+
+#Find the dataset of students who had transactions in Unit 1 but not in Unit 2/3/4. 
+#This representation should show how the grades were with trasactions in unit 1 
+
+# Filter the dataset based on the given conditions
+unit1_filtered_data <- final_dataset[final_dataset$Unit_1_Transactions > 0 & 
+                                       final_dataset$Unit_2_Transactions < 1 & 
+                                       final_dataset$Unit_3_Transactions < 1 & 
+                                       final_dataset$Unit_4_Transactions < 1 &
+                                       !is.na(final_dataset$Unit_1_Transactions) ,]
+
+# View the filtered data
+View(unit1_filtered_data)
+
+# Calculate the mean percentage for each unit test
+mean_percentage_by_unit <- unit1_filtered_data %>%
+  group_by(Display_Column_Name) %>%
+  summarise(mean_percentage = mean(Percentage, na.rm = TRUE))
+
+# Create a ggplot bar chart
+ggplot(mean_percentage_by_unit, aes(x = Display_Column_Name, y = mean_percentage)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  geom_text(aes(label = round(mean_percentage, 1)), vjust = -0.5) +
+  labs(title = "Mean Percentage by Unit Test",
+       x = "Unit Test", y = "Mean Percentage") +
+  theme_minimal()
+
+
+##########################################################################################################  
+#Which instructors had the most tutor usage via transactions, and did that correlate to higher grades?
+########################################################################################################## 
+
+
+
+
+##########################################################################################################  
+#Heatmaps for Tutor Usage vs. Performance: How much tutor usage is optimal for grade improvement? 
+########################################################################################################## 
+
+
+
+##########################################################################################################  
+#Correlation between unique tutor sessions and final grade outcome 
+#Heatmaps for Tutor Usage vs. Performance: How much tutor usage is optimal for grade improvement? 
+########################################################################################################## 
 
 
 
