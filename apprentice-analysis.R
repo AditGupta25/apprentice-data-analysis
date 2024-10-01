@@ -205,6 +205,8 @@ merged_data_with_transactions <- merged_data_with_transactions %>%
 filtered_data <- merged_data_with_transactions %>%
   filter(Transaction_Count > 0 & Transaction_Count < 100)
 
+View(filtered_data)
+
 # Create the scatter plot with a line of best fit
 ggplot(filtered_data, aes(x = Transaction_Count, y = Percentage)) +
   geom_point(color = "blue") +
@@ -220,7 +222,7 @@ ggplot(filtered_data, aes(x = Transaction_Count, y = Percentage)) +
 #Correlation between tutor and grades
 ##################
 # Perform linear regression
-model <- lm(Percentage ~ Transaction_Count, data = merged_data_with_transactions)
+model <- lm(Percentage ~ Transaction_Count, data = filtered_data)
 
 # View the summary of the linear regression model
 summary(model)
@@ -921,7 +923,21 @@ unique_sessions <- transactions_with_sessions %>%
   summarise(unique_session_count = n_distinct(session_id))
 
 # View the results
-# View(unique_sessions)
+#View(unique_sessions)
+
+# Merge using LTI_ID
+student_sessions_and_grades <- left_join(merged_data_with_transactions, unique_sessions, by = "LTI_ID")
+
+View(student_sessions_and_grades)
+# Create a scatter plot
+ggplot(student_sessions_and_grades, aes(x = unique_users, y = mean_percentage)) +
+  geom_point(color = "blue", size = 3, alpha = 0.7) +
+  labs(title = "Scatter Plot of Unique Sessions vs Mean Percentage",
+       x = "Unique Sessions (Users)",
+       y = "Mean Percentage") +
+  theme_minimal()
+
+
 
 
 ################################################################################## 
@@ -940,12 +956,22 @@ unit1_filtered_data <- final_dataset[final_dataset$Unit_1_Transactions > 0 &
                                        !is.na(final_dataset$Unit_1_Transactions) ,]
 
 # View the filtered data
-View(unit1_filtered_data)
+#View(unit1_filtered_data)
+
+
+
+#TODO: Normalize this > mean is at 0, subtract the mean (divided by sigma) for unit 2,3,4
+# relative to the class vs. test
 
 # Calculate the mean percentage for each unit test
 mean_percentage_by_unit <- unit1_filtered_data %>%
   group_by(Display_Column_Name) %>%
-  summarise(mean_percentage = mean(Percentage, na.rm = TRUE))
+  summarise(
+    mean_percentage = mean(Percentage, na.rm = TRUE),
+    sd_percentage = sd(Percentage, na.rm = TRUE),
+    )
+
+View(mean_percentage_by_unit)
 
 # Create a ggplot bar chart
 ggplot(mean_percentage_by_unit, aes(x = Display_Column_Name, y = mean_percentage)) +
@@ -955,40 +981,103 @@ ggplot(mean_percentage_by_unit, aes(x = Display_Column_Name, y = mean_percentage
        x = "Unit Test", y = "Mean Percentage") +
   theme_minimal()
 
+# Calculate z-score for each student in Unit 1
+# Extract mean and sd for "Unit 1 Test"
+unit1_mean <- mean_percentage_by_unit %>%
+  filter(Display_Column_Name == "Unit 1 Test") %>%
+  pull(mean_percentage)
+
+unit1_sd <- mean_percentage_by_unit %>%
+  filter(Display_Column_Name == "Unit 1 Test") %>%
+  pull(sd_percentage)
+
+# Calculate z-score for each student in Unit 1
+unit1_data <- final_dataset %>%
+  filter(Display_Column_Name == "Unit 1 Test" & !is.na(Percentage)) %>%
+  mutate(z_score = (Percentage - unit1_mean) / unit1_sd)
+
+# View the results with z-scores
+View(unit1_data)
+
+ggplot(unit1_data, aes(x = z_score)) +
+  geom_histogram(binwidth = 0.5, fill = "blue", color = "white", alpha = 0.7) +
+  labs(title = "Distribution of Z-Scores for Unit 1 Test",
+       x = "Z-Score", y = "Count") +
+  theme_minimal()
+
+# Box plot comparing tutor and non-tutor z-scores
+ggplot(unit1_data, aes(x = tutor, y = z_score, fill = tutor)) +
+  geom_boxplot() +
+  labs(title = "Z-Scores Comparison: Tutor vs Non-Tutor Users",
+       x = "Tutor Usage", y = "Z-Score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+
+# Summary statistics of z-scores by tutor usage
+unit1_data %>%
+  group_by(tutor) %>%
+  summarise(
+    mean_z_score = mean(z_score, na.rm = TRUE),
+    sd_z_score = sd(z_score, na.rm = TRUE)
+  )
+
+
 
 ##########################################################################################################  
 #Which instructors had the most tutor usage via transactions, and did that correlate to higher grades?
 ########################################################################################################## 
 
+# Group by Instructor to get mean percentage
+instructors_grouping <- final_dataset %>%
+  group_by(Instructor_UserName) %>%
+  summarise(
+    mean_percentage = mean(Percentage, na.rm = TRUE),
+    students_in_class = n_distinct(LTI_ID)
+  ) %>%
+  filter(students_in_class > 10)
+
+# Create a ggplot bar chart with mean percentage labels and vertical x-axis text
+ggplot(instructors_grouping, aes(x = Instructor_UserName, y = mean_percentage)) +
+  geom_bar(stat = "identity", fill = "skyblue") +
+  geom_text(aes(label = round(mean_percentage, 1)), vjust = -0.5) +
+  labs(title = "Mean Percentage by Course Teacher",
+       x = "Instructor", y = "Mean Percentage") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
 
 ##########################################################################################################  
 #Heatmaps for Tutor Usage vs. Performance: How much tutor usage is optimal for grade improvement? 
+#TODO: Better dataframe for significance, Unit grade is normalized score, Transactions in that unit
+#TODO: Mixed effects models: do some people just score better in the class? (overall general effect of tutors)
 ########################################################################################################## 
+
+
 
 
 
 ##########################################################################################################  
-#Correlation between unique tutor sessions and final grade outcome 
-#Heatmaps for Tutor Usage vs. Performance: How much tutor usage is optimal for grade improvement? 
+#Adoption Rates: 
+# How many people had access to the tutors? 
+# How many people clicked on the tutors and did not use it?
+# How many people completed at least 1 problem? 
+# How many people completed at least 1 problem? Segmented by tutor?
+# Total number of problems that were INCOMPLETE? 
+# Total number of problems that were INCOMPLETE? Segmented by tutor?
+# How long did people spend solving tutor problems on average? 
+# How long did people spend solving tutor problems on average? Segmented by tutor?
+# Analyze the number of tutor sessions by demographics (age, race, gender)
+# How many times did students ask for help? (hint)
+# How many times did students ask for help? broken down by demographics (age, race, gender)
+
 ########################################################################################################## 
 
 
+##########################################################################################################  
+#Correlation between unique tutor sessions (a session is 10 minutes) and final grade outcome 
+#Heatmaps for Tutor Usage vs. Performance: How much tutor usage is optimal for grade improvement? 
+########################################################################################################## 
 
-##################
-#how many unique LTI ID's did we log in database vs in demo/grades data?
-#whats the distribution of gender?
-#what's the distribution of race?
-#what's the distribution of age?
-#How many classes are there? (based on class ID)
-#How many students are there in segments of usage (low, medium, high) --> usage segments
-#What is the distribution of grade by usage segments
-#What is the distribution of grade by age
-#What is the distribution of grade by Race
-#What is the distribution of grade by Gender
-#How did students who used the tutor do in the overall class compared to non-users?
-#Run T Test, Linear Regression
-#https://docs.google.com/presentation/d/1vzKI-MyiHMByvPYM2kXsSjqkxuNElqytpYIkQ0B2aUI/edit#slide=id.p
-##################
 
