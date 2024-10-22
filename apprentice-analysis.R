@@ -11,9 +11,9 @@ library(lubridate)
 ####################################
 
 # Load the datasets
-demographics <- read_csv("Documents/GitHub/apprentice-data-analysis/demographics.csv")
-grades <- read_csv("Documents/GitHub/apprentice-data-analysis/grades.csv")
-transactions <- read_csv("Documents/GitHub/apprentice-data-analysis/transactions.csv")
+demographics <- read_csv("/Users/kaitlyncrutcher/Desktop/apprentice-data-analysis-main/demographics.csv")
+grades <- read_csv("/Users/kaitlyncrutcher/Desktop/apprentice-data-analysis-main/grades.csv")
+transactions <- read_csv("/Users/kaitlyncrutcher/Desktop/apprentice-data-analysis-main/transactions.csv")
 
 # Clean up column names to avoid issues (remove spaces, standardize)
 colnames(demographics) <- gsub(" ", "_", colnames(demographics))
@@ -95,8 +95,8 @@ write_csv(merged_data_with_transactions, "Documents/GitHub/apprentice-data-analy
 ####################################
 
 # Filter and categorize users as tutor and non-tutor based on Transaction_Count
-#demographic_dataset <- merged_data_with_transactions %>%
-#  mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
+demographic_dataset <- merged_data_with_transactions %>%
+  mutate(Tutor_Usage = ifelse(is.na(Transaction_Count), "Non-Tutor Users", "Tutor Users"))
 
 #View(demographics)
 
@@ -462,7 +462,7 @@ calculate_overall_mean_grade <- function(final_dataset) {
   
   # Create the bar plot with error bars
   ggplot(data, aes(x = Group, y = Mean_Grade, fill = Group)) +
-   #stat_summary(fun.data = Mean_Grade, geom = "errorbar", width=0.025, alpha=0.7)
+    #stat_summary(fun.data = Mean_Grade, geom = "errorbar", width=0.025, alpha=0.7)
     geom_bar(stat = "identity", width = 0.5) +
     geom_errorbar(aes(ymin = Mean_Grade - SE, ymax = Mean_Grade + SE), width = 0.2) +
     labs(title = "Overall Mean Grades: Tutor Users vs Non-Tutor Users",
@@ -884,7 +884,7 @@ ggplot(transactions, aes(x = day_of_week)) +
   geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +  # Add labels
   labs(title = "Tutor Usage by Day of the Week", x = "Day", y = "Number of Tutor Transactions (log scale)") +
   theme_minimal() 
-  #scale_y_log10()  # Apply log scale to y-axis
+#scale_y_log10()  # Apply log scale to y-axis
 
 # Plot tutor usage by time range with labels and log scale
 ggplot(transactions, aes(x = time_range)) +
@@ -892,7 +892,7 @@ ggplot(transactions, aes(x = time_range)) +
   geom_text(stat = 'count', aes(label = ..count..), vjust = -0.5) +  # Add labels
   labs(title = "Tutor Usage by Time Range", x = "Time Range", y = "Number of Tutor Transactions (log scale)") +
   theme_minimal() 
-  #scale_y_log10()  # Apply log scale to y-axis
+#scale_y_log10()  # Apply log scale to y-axis
 
 
 # Combine day of the week and time range with labels and log scale, and rotate labels
@@ -903,7 +903,7 @@ ggplot(transactions, aes(x = day_of_week, fill = time_range)) +
   labs(title = "Tutor Usage by Day and Time Range", x = "Day", y = "Number of Tutor Transactions (log scale)") +
   theme_minimal() +
   scale_fill_brewer(palette = "Set3") 
-  #scale_y_log10()  # Apply log scale to y-axis
+#scale_y_log10()  # Apply log scale to y-axis
 
 
 ######################################### 
@@ -927,8 +927,6 @@ unique_sessions <- transactions_with_sessions %>%
 
 # Merge using LTI_ID
 student_sessions_and_grades <- left_join(merged_data_with_transactions, unique_sessions, by = "LTI_ID")
-
-View(student_sessions_and_grades)
 # Create a scatter plot
 ggplot(student_sessions_and_grades, aes(x = unique_users, y = mean_percentage)) +
   geom_point(color = "blue", size = 3, alpha = 0.7) +
@@ -969,7 +967,7 @@ mean_percentage_by_unit <- unit1_filtered_data %>%
   summarise(
     mean_percentage = mean(Percentage, na.rm = TRUE),
     sd_percentage = sd(Percentage, na.rm = TRUE),
-    )
+  )
 
 View(mean_percentage_by_unit)
 
@@ -1061,19 +1059,129 @@ ggplot(instructors_grouping, aes(x = Instructor_UserName, y = mean_percentage)) 
 ##########################################################################################################  
 #Adoption Rates: 
 # How many people had access to the tutors? 
+#   Not enough information in demographics to complete, no unique identifiers or enough correlating info
 # How many people clicked on the tutors and did not use it?
+#   Action is 'start new problem', no input within 1 minute with same user ID and tutor
+#   Also could see if there's only 1 input (measured by order of time stamp in 10 minutes)
+did_problem_frame <- transactions %>% select("user_id", "action", "input", "time")
+new_problems <- did_problem_frame %>%
+  filter(action == "start new problem")
+not_started <- 0
+for (prob in which(new_problems)) {
+  no_input_transactions <- did_problem_frame %>%
+    filter(user_id == did_problem_frame$user_id[prob],
+           is.na(input) | input == "") %>%
+    group_by(user_id) %>%
+    arrange(time) %>%
+    mutate(time_diff = difftime(lead(time), time, units = "mins")) %>%
+    filter(time_diff <= 1)
+  if (nrow(no_input_transactions) > 0) {
+    not_started <- not_started + 1
+  }
+}
+not_started
+#   Could break down per tutor to see if significant difference
 # How many people completed at least 1 problem? 
+#   Count how many user IDs have at least one correctness 'CORRECT'
+#   Future idea: Check which tutor people tried first on average, using time stamp and user ID
+completed_problems <- transactions %>%
+  filter(selection == "done") %>%
+  distinct(user_id) %>%
+  count()
 # How many people completed at least 1 problem? Segmented by tutor?
+#   Group prior query by tutor, bar chart w/ x: tutor y: completed problems
+#   Future idea: Find ratio of correct-incorrect/incomplete problems people did per tutor
+completed_problems_per_tutor <- transactions %>%
+  filter(selection == "done") %>%
+  group_by(tutor) %>%
+  distinct(user_id) %>%
+  summarize(completed_users = n())
+ggplot(completed_problems_per_tutor, aes(x = substr(tutor, 1, 5), y = completed_users)) +
+  geom_bar(stat = "identity") + 
+  labs(title = "1+ problem completed per tutor", x = "tutor", y = "# users") +
+  theme(axis.text.x = element_text(size = 6))
 # Total number of problems that were INCOMPLETE? 
+#   Define 1 problem as 1 tutor user ID within 10 minutes from problem start, total started - completed problems
+incomplete <- nrow(new_problems) - completed_problems
+incomplete
 # Total number of problems that were INCOMPLETE? Segmented by tutor?
+#   Group prior query by tutor, bar chart w/ x: tutor y: incomplete problems
+did_problem_frame <- transactions %>%
+  select(user_id, tutor, action, input, time) %>%
+  filter(grepl("start new problem", action))
+completed_problems <- transactions %>%
+  filter(correctness == "CORRECT") %>%
+  group_by(user_id, tutor) %>%
+  mutate(time_diff = difftime(time, lag(time), units = "mins")) %>%
+  filter(time_diff <= 10)
+incomplete_problems <- did_problem_frame %>%
+  left_join(completed_problems, by = c("user_id", "tutor")) %>%
+  filter(is.na(correctness))
+incomplete_problems_by_tutor <- incomplete_problems %>%
+  group_by(tutor) %>%
+  summarise(incomplete_count = n())
+ggplot(incomplete_problems_by_tutor, aes(x = substr(tutor, 1, 5), y = incomplete_count)) +
+  geom_bar(stat = "identity") +
+  labs(title = "incomplete problems by tutor",
+       x = "tutor", y = "# incomplete problems") +
+  theme(axis.text.x = element_text(size = 8))
 # How long did people spend solving tutor problems on average? 
+#   Take completed problems, start time - correctness 'CORRECT' time
 # How long did people spend solving tutor problems on average? Segmented by tutor?
+#   Group prior query by tutor, bar chart w/ x: tutor y: time in minutes
+#   Could also group average number of transactions per problem per tutor
+did_problem_frame <- transactions %>%
+  select(user_id, tutor, action, input, time) %>%
+  filter(grepl("start new problem", action))
+completed_problems <- transactions %>%
+  filter(correctness == "CORRECT") %>%
+  group_by(user_id, tutor) %>%
+  mutate(time_diff = abs(difftime(time, lag(time), units = "mins"))) %>%
+  filter(time_diff <= 10)
+average_time <- completed_problems %>%
+  group_by(tutor) %>%
+  summarise(avg_time = mean(time_diff, na.rm = TRUE))
+ggplot(average_time, aes(x = reorder(tutor, avg_time), y = avg_time)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Average Time Spent on Completed Problems per Tutor",
+       x = "Tutor",
+       y = "Average Time (minutes)") +
+  theme_minimal() +
+  coord_flip()
 # Analyze the number of tutor sessions by demographics (age, race, gender)
+#   Define session as started problem with at least 1 input in 1 minute, group per demographic
+#   Also count completed problems grouped per demographic
+sessions <- transactions %>%
+  group_by(user_id, problem_id) %>%
+  filter(min(input_time) <= 1) %>%
+  summarise(started = n())
+sessions_with_demographics <- sessions %>%
+  inner_join(demographics, by = "user_id")
+sessions_by_demo <- sessions_with_demographics %>%
+  group_by(age, race, gender) %>%
+  summarise(number_of_sessions = n())
 # How many times did students ask for help? (hint)
+#   Count correctness 'HINT' per session and average within session, also compile hint requests per student
 # How many times did students ask for help? broken down by demographics (age, race, gender)
-
+#   Group prior query of total hint requests per student by demographic
+hint_requests <- transactions %>%
+  filter(correctness == "HINT")
+hints_per_user_tutor <- hint_requests %>%
+  group_by(user_id, tutor) %>%
+  summarise(hint_count = n())
+avg_hints_per_tutor <- hints_per_user_tutor %>%
+  group_by(tutor) %>%
+  summarise(avg_hints_per_session = mean(hint_count))
+ggplot(avg_hints_per_tutor, aes(x = tutor, y = avg_hints_per_session)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  theme_minimal() +
+  labs(title = "Average Hint Requests per Tutor Interaction", 
+       x = "Tutor", 
+       y = "Average Hint Requests per Session") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ########################################################################################################## 
-
+#do it here
+#run one line at a time
 
 ##########################################################################################################  
 #Correlation between unique tutor sessions (a session is 10 minutes) and final grade outcome 
